@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#define EVENT_CLOSE 1
 
 typedef struct Widget Widget;
 
@@ -94,6 +95,9 @@ static void widget_noop_event(Widget *self, int code)
 }
 
 /* 다이얼로그는 이벤트 코드 1(닫기)을 받으면 스스로 정리(파괴)된다 */
+// 다이얼로그는 이벤트 코드 1(닫기)를 받으면 closed 플래그만 표시한다.
+// 실제 free +슬롯 무효화는 Screen(screen_reap)이 담당한다.
+
 static void dialog_on_event(Widget *self, int code);
 
 static const VTable BUTTON_VT = {button_render, widget_noop_event};
@@ -157,8 +161,9 @@ static void screen_render(Screen *s)
 {
     for (int i = 0; i < s->count; i++)
     {
+        // w: 지역 변수(스택), s->items[i]: 배열 슬롯 (별개의 저장공간))
         Widget *w = s->items[i];
-        // 추가
+        // 추가함.
         if (w == NULL)
             continue;
         fprintf(stderr, "render  id=%d w=%p vtbl=%p\n", w->id, (void *)w, (void *)w->vtbl);
@@ -176,9 +181,10 @@ static void screen_reap(Screen *s)
         Widget *w = s->items[i];
         if (w != NULL && w->closed)
         {
-            // 소유자(Screen)만이 실제 free를 실행
+            // 소유자(Screen)만이 실제 free를 실행 - 가리키는 대상(힙 객체)를 없애는 것임.
             widget_destroy(w);
             // 해제 = 소유 포인터 무효화
+            // 여기서 w가
             s->items[i] = NULL;
         }
     }
@@ -239,6 +245,7 @@ int main(void)
     printf("frame 1:\n");
     screen_render(&s);
     screen_dispatch(&s, 1);
+
     /* TODO 닫힌(closed) 위젯을 여기서 정리(free + 해당 슬롯 NULL)할 필요가 있음 */
     screen_reap(&s);
     char *status = app_build_status("dialog closed");
@@ -250,5 +257,6 @@ int main(void)
     free(status);
     // s.items[i]를 직접 안건드리고 screen에게 위임
     screen_destroy_all(&s);
+
     return 0;
 }
