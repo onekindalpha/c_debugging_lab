@@ -1,7 +1,7 @@
 /*
- * Challenge 01 — Use After Free (심화: vtable 기반 위젯 시스템)
- * [해결 완료] closed 표시 + screen_reap(free+NULL 동시 처리)로 정리 책임을 Screen에 위임
- *
+/* Challenge 01 — Use After Free (해결: 소프트 삭제 패턴)
+ * closed 플래그로 "논리적 삭제"만 하고, 실제 free는 프로그램 종료 시점까지 미룸.
+ * → free 시점을 미뤘기 때문에 UAF 자체가 발생할 여지가 없음.
  *
  * [시나리오]
  *   아주 작은 GUI 흉내. 각 위젯(Widget)은 힙 객체이며 첫 멤버로 "vtable"
@@ -39,15 +39,6 @@
  *       (dialog_on_event 는 self 만 안다) 이벤트 핸들러에서는 closed 표시만 남기고,
  *       Screen 쪽에서 closed 위젯을 free 한 뒤 그 슬롯을 NULL 로 만드는 편이 자연스럽습니다.
  *       이후 dispatch/render 루프가 NULL 슬롯을 건너뛰게 하세요. "해제 = 소유 포인터 무효화".
- * [해결각주]
- *   dialog_on_event: closed=1 표시만 (free 호출 제거 → 더블프리 원인 제거)
- *   screen_reap: Screen이 closed 위젯을 free + 슬롯 NULL을 한 세트로 처리
- *   screen_dispatch/render: NULL 슬롯 스킵 가드 추가
- * → 검증: gdb watch s->items[2]로 NULL 전환 시점 확인, "exited normally"로 정상 종료 확인
- *
- *   [대안] free를 즉시 안 하고 w->closed만 체크해서 건너뛰는 "소프트 삭제" 방식도 가능.
- *          이 경우 UAF 위험 자체가 사라지지만, 위젯 메모리는 프로그램 종료까지 회수 안 됨
- *          (screen_reap 방식은 메모리를 즉시 회수하는 대신 free/NULL 동기화 책임이 필요함).
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -106,8 +97,7 @@ static void widget_noop_event(Widget *self, int code)
 }
 
 /* 다이얼로그는 이벤트 코드 1(닫기)을 받으면 스스로 정리(파괴)된다 */
-// 다이얼로그는 이벤트 코드 1(닫기)를 받으면 closed 플래그만 표시한다.
-// 실제 free +슬롯 무효화는 Screen(screen_reap)이 담당한다.
+// (수정한 점) 다이얼로그는 이벤트 코드 1(닫기)를 받으면 closed 플래그만 표시한다.
 
 static void dialog_on_event(Widget *self, int code);
 
@@ -161,7 +151,7 @@ static void screen_dispatch(Screen *s, int code)
     {
         Widget *w = s->items[i];
         // 추가
-        if (w == NULL)
+        if (w->closed) // 이미 닫힌 위젯한테는 이벤트도 안 보냄
             continue;
         w->vtbl->on_event(w, code);
     }
@@ -176,31 +166,13 @@ static void screen_render(Screen *s)
         // w: 지역 변수(스택), s->items[i]: 배열 슬롯 (별개의 저장공간))
         Widget *w = s->items[i];
         // 추가함.
-        if (w == NULL)
-            continue;
+        if (w->closed)
+            continue; // free는 안함.
         fprintf(stderr, "render  id=%d w=%p vtbl=%p\n", w->id, (void *)w, (void *)w->vtbl);
         w->vtbl->render(w);
     }
 }
 
-// Screen이 "closed표시된 위젯"을 실제로 정리 (free+ 슬롯 무효화)하는 부분
-// 위젯 자신(dialog_on_event)은 screen의 items배열을 모르므로
-// 표시 closed=1의 실제 정리(free+null)을 분리해서 정리 책임을 전부 screen이 짐.
-static void screen_reap(Screen *s)
-{
-    for (int i = 0; i < s->count; i++)
-    {
-        Widget *w = s->items[i];
-        if (w != NULL && w->closed)
-        {
-            // 소유자(Screen)만이 실제 free를 실행 - 가리키는 대상(힙 객체)를 없애는 것임.
-            widget_destroy(w);
-            // 해제 = 소유 포인터 무효화
-            // 여기서 w가
-            s->items[i] = NULL;
-        }
-    }
-}
 // screen이 위젯들을 관리하도록 위임하는 함수를 만듦.
 static void screen_destroy_all(Screen *s)
 {
@@ -256,10 +228,9 @@ int main(void)
 
     printf("frame 1:\n");
     screen_render(&s);
-    screen_dispatch(&s, EVENT_CLOSE);
+    screen_dispatch(&s, 1);
 
     /* TODO 닫힌(closed) 위젯을 여기서 정리(free + 해당 슬롯 NULL)할 필요가 있음 */
-    screen_reap(&s);
     char *status = app_build_status("dialog closed");
     printf("%s\n", status);
 
