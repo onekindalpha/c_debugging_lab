@@ -46,18 +46,26 @@ typedef struct Widget Widget;
 
 typedef struct
 {
+    // 나를 어떻게 그릴지 함수
     void (*render)(Widget *self);
+    // 이벤트를 어떻게 처리할지 함수
     void (*on_event)(Widget *self, int code);
 } VTable;
 
 struct Widget
 {
+    // 이 위젯이 무슨 종류인지 나타내는 함수 테이블 포인터
     const VTable *vtbl;
+    // 위젯 고유 번호 ()
     int id;
+    // 닫힘 표시 (플래그))
     int closed;
+    // 화면에 표시할 텍스트
     char label[24];
+    // 나를 담고 있는 Screen
 };
 
+// screen이 widget들을 담고 있음
 #define MAX_WIDGETS 8
 typedef struct
 {
@@ -118,6 +126,7 @@ static Widget *widget_new(const VTable *vt, int id, const char *label)
 
 static void widget_destroy(Widget *w)
 {
+    fprintf(stderr, "destroy id=%d w=%p vtbl=%p\n", w->id, (void *)w, (void *)w->vtbl);
     free(w);
 }
 
@@ -128,24 +137,62 @@ static void screen_add(Screen *s, Widget *w)
         s->items[s->count++] = w;
 }
 
+// 아래 함수는 모든 위젯에 w->vtbl->on_evnet(w, 1)을 호출함.
+// 다이얼로그만 dialog_on_event가 걸려있음
 static void screen_dispatch(Screen *s, int code)
 {
     for (int i = 0; i < s->count; i++)
     {
         Widget *w = s->items[i];
+        // 추가
+        if (w == NULL)
+            continue;
         w->vtbl->on_event(w, code);
     }
 }
+// 여전히 items[2]를 살아있는 위젯인 줄 알고 w->vtbl->render(w)를 호출
+// vtbl이 문자열로 오염되어있으니 말도 안되는 주소로 점프 시도함. 그래서 sigseg가 남.
 
 static void screen_render(Screen *s)
 {
     for (int i = 0; i < s->count; i++)
     {
         Widget *w = s->items[i];
-        // 추가했음
+        // 추가
         if (w == NULL)
             continue;
+        fprintf(stderr, "render  id=%d w=%p vtbl=%p\n", w->id, (void *)w, (void *)w->vtbl);
         w->vtbl->render(w);
+    }
+}
+
+// Screen이 "closed표시된 위젯"을 실제로 정리 (free+ 슬롯 무효화)하는 부분
+// 위젯 자신(dialog_on_event)은 screen의 items배열을 모르므로
+// 표시 closed=1의 실제 정리(free+null)을 분리해서 정리 책임을 전부 screen이 짐.
+static void screen_reap(Screen *s)
+{
+    for (int i = 0; i < s->count; i++)
+    {
+        Widget *w = s->items[i];
+        if (w != NULL && w->closed)
+        {
+            // 소유자(Screen)만이 실제 free를 실행
+            widget_destroy(w);
+            // 해제 = 소유 포인터 무효화
+            s->items[i] = NULL;
+        }
+    }
+}
+// screen이 위젯들을 관리하도록 위임하는 함수를 만듦.
+static void screen_destroy_all(Screen *s)
+{
+    for (int i = 0; i < s->count; i++)
+    {
+        if (s->items[i] != NULL)
+        {
+            widget_destroy(s->items[i]);
+            s->items[i] = NULL;
+        }
     }
 }
 
@@ -154,8 +201,7 @@ static void dialog_on_event(Widget *self, int code)
     if (code == 1)
     {
         self->closed = 1;
-        // 다시 살림
-        widget_destroy(self);
+        // 위젯이 스스로를 프리하지 않도록 함 - 더블 프리 문제
     }
 }
 
@@ -170,7 +216,13 @@ static char *app_build_status(const char *text)
      * 매번 똑같이(결정적으로) 재현하기 위해 인위적으로 채운다.
      * glibc(리눅스) 환경 (tcache)에서만 유효하다. 환경&상황에 따라 msg는 새로운 주소로 할당될 수 있다.
      */
+    // 방금 free된 것과 정확히 같은 크기로 하니까 glibc tcache가 그 자리를 그대로 재활용해줌
+    // 방금 free(dialog)로 반납된 청크가 정확히 같은 크기라서
+    // msg가 (환경에 따라 거의 항상) 죽은 다이얼로그와 똑같은 주소를 받음)
+    // 그 자리에 status: dialog closed 문자열을 써넣으면서, 구조체 맨 앞 8바이트(원래 vtbl자리)가
+    // status: 라는 텍스트로 덮어써지는 것임.
     memset(msg, 0xAB, sizeof(Widget));
+    // 일부러 오염 재현용
     snprintf(msg, sizeof(Widget), "STATUS: %s", text);
     return msg;
 }
@@ -178,21 +230,17 @@ static char *app_build_status(const char *text)
 int main(void)
 {
     Screen s = {.count = 0};
-
+    // main에서 위젯 4개 생성함.
     screen_add(&s, widget_new(&LABEL_VT, 10, "Welcome"));
     screen_add(&s, widget_new(&BUTTON_VT, 11, "OK"));
-    screen_add(&s, widget_new(&DIALOG_VT, 12, "Are you sure?")); /* items[2] */
+    screen_add(&s, widget_new(&DIALOG_VT, 12, "Are you sure?")); /* items[2] */ // 다이얼로그 위젯
     screen_add(&s, widget_new(&BUTTON_VT, 13, "Cancel"));
 
     printf("frame 1:\n");
     screen_render(&s);
     screen_dispatch(&s, 1);
-
     /* TODO 닫힌(closed) 위젯을 여기서 정리(free + 해당 슬롯 NULL)할 필요가 있음 */
-
-    // widget_destroy(s.items[2]);
-    s.items[2] = NULL;
-
+    screen_reap(&s);
     char *status = app_build_status("dialog closed");
     printf("%s\n", status);
 
@@ -200,10 +248,7 @@ int main(void)
     screen_render(&s);
 
     free(status);
-    for (int i = 0; i < s.count; i++)
-    {
-        if (s.items[i])
-            free(s.items[i]);
-        return 0;
-    }
+    // s.items[i]를 직접 안건드리고 screen에게 위임
+    screen_destroy_all(&s);
+    return 0;
 }

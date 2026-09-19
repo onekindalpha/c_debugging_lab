@@ -27,3 +27,5 @@ vgcore.*
 !.vscode/launch.json
 !.vscode/tasks.json
 !.vscode/extensions.json
+challenges/01_use_after_free/bug_raw
+challenges/06_null_deref/bug
