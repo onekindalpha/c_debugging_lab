@@ -26,24 +26,17 @@
  * [gdb 로 잡기]
  *   make gdb NAME=04_double_free
  *   (gdb) run                       → abort
- *   (왜 abort에서 봐야하는거지)
  *   (gdb) bt                        → directory_free() 의 두 번째 free 루프
  *   (gdb) frame N ; print d->by_name[i] → 이 주소가 앞서 by_id 로 이미 free 됐는지 확인
- *   (gdb) print d->by_id[i]
- *   $6 = (Rec *) 0xaaaaaaac12a0
- *   (gdb) print d->by_name[i]
- *   (gdb) print d->by_name->name[i]
- *   Cannot access memory at address 0x8e21237345bfcfb9
- *   8 = (Rec *) 0xaaaaaaac12a0 다 똑같이 나오는데 이유가 뭐지?
  *   (gdb) print d->by_id[0]
- * 
-*    [printf(로그)로 잡기]
+ *
+ * [printf(로그)로 잡기]
  *   free 직전마다 주소를 찍어 같은 주소가 두 번 나오는지 본다:
  *     fprintf(stderr, "free rec=%p (%s)\n", (void*)r, tag);
  *   → by_id 루프와 by_name 루프에서 동일 주소가 각각 나오면 이중 해제.
  *   (stdout 은 버퍼링되니 stderr 로 찍어야 크래시 직전 로그가 남는다)
  *
- *  TODO: 소유권은 한 곳만 갖게 한다. 예) by_id 를 "소유 인덱스"로 정하고 여기서만 해제,
+ * TODO: 소유권은 한 곳만 갖게 한다. 예) by_id 를 "소유 인덱스"로 정하고 여기서만 해제,
  *       by_name 은 "관찰용(빌려온) 인덱스"로 두어 절대 free 하지 않는다.
  */
 #include <stdio.h>
@@ -66,6 +59,7 @@ typedef struct
 
 static Rec *rec_new(int id, const char *name)
 {
+    // 힙 공간 확보
     Rec *r = malloc(sizeof *r);
     if (!r)
     {
@@ -73,14 +67,13 @@ static Rec *rec_new(int id, const char *name)
         exit(1);
     }
     r->id = id;
-    // 저장할 바이트 공간을 힙에 할당함. 
+    // name문자열을 저장할 힙 메모리를 할당하는 코드임.
     r->name = malloc(strlen(name) + 1);
     if (!r->name)
     {
         perror("malloc");
         exit(1);
     }
-    // 문자열을 복사함. 
     strcpy(r->name, name);
     return r;
 }
@@ -88,12 +81,13 @@ static Rec *rec_new(int id, const char *name)
 static void directory_add(Directory *d, int id, const char *name)
 {
     Rec *r = rec_new(id, name);
-    Rec *w = rec_new(id, name);
-
+    // rec 객체를 두개 생성하고, 각각의 포인터를 두 배열에 하나씩 등록함.
+    // rec하나를 두개의 배열이 공유하는 구조임.
+    // by_id와 by_name은 정렬만 다르고 결국 같은 rec객체들을 가리킴.
+    // 객체 1개 -> 주소 1개 -> 포인터 여러개가 같은 메모리 주소를 가리킴
     d->by_id[d->count] = r;
-    // 해제
-    d->by_name[d->count] = w; /* 같은 포인터를 두 인덱스에 함께 등록 */
-    // 같은 Rec 객체를 두 배열에서 가리키게 하려는 것임. 
+    d->by_name[d->count] = r;
+    // d가 관리하고 있는 REC의 개수
     d->count++;
 }
 
@@ -133,18 +127,27 @@ static void directory_dump(Directory *d)
     printf("\n");
 }
 
+// 여기서 뭔가 이중 프리가 일어나고 있는 것 같은데
 static void directory_free(Directory *d)
 {
     for (int i = 0; i < d->count; i++)
     {
-        //
+        // by_id가 가리키는 Rec A를 해제. 문자열 1개를 해제.
         free(d->by_id[i]->name);
+        // 만약에 같은 포인터로 했으면 이 두 부분이 중복될 수 있었음
+        // Rec 자체 해제
         free(d->by_id[i]);
+        // 여기까지 하면 이미 해제가 되기 때문에
+        d->by_id[i] = NULL;
+        // name을 참조할 수 있는 방법이 전혀 없어졌기 때문에 name은 참조하지 않아도 됨.
     }
     for (int i = 0; i < d->count; i++)
     {
-        // 이름에 대해서도 지우고 있고
-        free(d->by_name[i]);
+        // 만약에 같은 포인터로 했으면 이 두 부분이 중복될 수 있었음
+        // by_name이 가리키는 Rec B를 해제함
+        // by_id와 by_name이 같은 Rec을 가리키므로, Rec을 free()하는 쪽을 하나만 남긴다.
+        // free(d->by_name[i]);
+        d->by_name[i] = NULL;
     }
     d->count = 0;
 }

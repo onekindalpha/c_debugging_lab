@@ -72,7 +72,7 @@ static void split_lines(LineView *out, char *text)
         // parts가 어디서 온거지.
         parts[n++] = ln;
 
-        view_set(out, parts, n);
+    view_set(out, parts, n);
     // ln으로 들어온 거랑 out이랑 값이 다름.
 
     /* TODO 상기 코드를 수정하여 결과를 호출자가 준 out 에 직접 채운다(값 반환 아님, 지역 주소 반환 아님). */

@@ -50,8 +50,8 @@
  *  printf로 출력한 내용은 바로 터미널에 나타난다는 보장이 없어서, 프로그램이 크래시하면 마지막 로그가 화면에 안 보일 수 있다. stdrr는 보통 즉시 출력되기 때문에 디버깅 로그에 사용한다.
  * stdout에는 버퍼가 있음.
  * stdout은 버퍼링 될 수 있으므로 크래시 직전까지 실행되 노륵를 확실하게 확인하려면 stderr에 디버깅 로그를 출력하는 것이 유리하다.
- * TODO: realloc 은 반드시 "새 용량(newcap)" 으로 호출하고, l->cap 갱신과 순서를 맞춰야 한다.]
- * 동적 배열ㄹ의 크기를 넣을때, 기존 cap이 10이면, 실제 메모리도 20개짜리로 늘려야 함.
+ * TODO: realloc 은 반드시 "새 용량(newcap)" 으로 호출하고, l->cap 갱신과 순서를 맞춰야 한다.
+ * 동적 배열의 크기를 넣을때, 기존 cap이 10이면, 실제 메모리도 20개짜리로 늘려야 함.
  *  실제 메모리 크기와 l->cap의 값이 일치해야 한다.
  *       (성장 로직은 '용량 필드'와 '실제 확보량'이 항상 같도록 유지해야 한다)
  * (그니까 순서는 newcap을 먼저 계산하고 realloc()으로 실제 메모리를 newcap만큼 확보하고, 성공하면 l->cap을 newcap으로 변경한다.
@@ -69,11 +69,11 @@ typedef struct
      * size_t가 메모리 크기와 배열의 크기를 표현하기 위해 사용하는 unsigened정수형이기 때문임.
      *  현재 원소 개수
      * 할당된 원소 개수
-     * size_t는 음수를 표현할 수 이ㅓㅂㅅ다.
+     * size_t는 음수를 표현할 수 없다.
      *  int에는 음수가 잇으니까 정상적으로 -1이 됨.
      *
      *   tip 2. int 는 보통 32비트라 약 21억(2^31-1)에서 넘치고, 음수도 가능하다.
-     *          원소가 그보다 많아지거나 cap*sizeof(int) 계산이 커지면 int 는 오버플로된다.
+     *          원소가 그보다 많아지거나 cap*sizeof(int) 계산이 커지면 int는 오버플로된다.
      *   생각해보기: 크기를 int 로 두면 어떤 버그가 생길 수 있을까?
      *  큰 len이나 cap을 표현하거나 cap * sizeof(int)처럼 메모리 크기를 계산할 때 int의 범위를 초과하여 오버플로가 발생하고, 잘못된 메모리 크기가 계산될 수 있다.
      */
@@ -89,6 +89,7 @@ static void list_init(IntList *l)
     l->data = malloc(l->cap * sizeof(int));
     if (!l->data)
     {
+        // perror는 뭐지.
         perror("malloc");
         exit(1);
     }
@@ -98,11 +99,11 @@ static void list_ensure(IntList *l, size_t need)
 {
     if (need <= l->cap)
         return;
-    // size_t를 계싼함 원래 있는 변수인가?
+    // size_t를 계산함 원래 있는 변수인가?
     size_t newcap = l->cap ? l->cap * 2 : 8;
     while (newcap < need)
         newcap *= 2;
-    // p라는 포인터 변수로 리얼록을 줌. 근데 l->data, ;->cap은
+    // p라는 포인터 변수로 리얼록을 줌. 근데 l->data, l->cap은
     l->cap = newcap;
     int *p = realloc(l->data, l->cap * sizeof(int));
     if (!p)
@@ -111,10 +112,11 @@ static void list_ensure(IntList *l, size_t need)
         free(l->data);
         exit(1);
     }
-    // 포인터 변수는 왜 밑에서 바꾸지
+    // 리얼록의 시작주소를 p로 만들려고 아닌가?
     l->data = p;
 }
 
+// 이 코드 무슨 말이지?
 static void list_push(IntList *l, int x)
 {
     if (l->len == l->cap)
