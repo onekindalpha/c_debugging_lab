@@ -126,6 +126,12 @@ static Widget *widget_new(const VTable *vt, int id, const char *label)
      *   tip 2. 그래서 sizeof *w 는 (VLA 제외) 컴파일 타임에 sizeof(Widget) 상수로 치환된다.
      *   생각해보기: sizeof(Widget) 대신 sizeof *w 로 쓰면 어떤 장점이 있을까?
      */
+    // 아래처럼 쓰면 malloc할 크기를 타입 이름을 직접 언급하지 않고, w가 지금 가리키는 것에서 자동으로 뽑아냄.
+    // 따라서 나중에 w의 선언 타입이 바뀌어도, 이 malloc줄은 손댈 필요없이 항상 정확한 크기로 자동 추적됨.
+    // 타입이 바뀔 때 이 줄을 깜빡하고 안 고치면 잘못된 크기로 할당하는 버그가 생김
+    // 복사 - 붙여넣기 실수 자체가 원천 차단됨.
+    // malloc할 크기가 항상 w의 실제 타입을 자동으로 따라가서, 유지보수 중 타입이 바뀌거나 실수로 다른 타입을 적어 넣는 버그를
+    // 원천으로 막아줌.
     Widget *w = malloc(sizeof *w);
     if (!w)
     {
