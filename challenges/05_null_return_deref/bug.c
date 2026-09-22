@@ -18,10 +18,12 @@
  *   make gdb NAME=05_null_return_deref
  *   (gdb) run                     → 크래시(SIGSEGV)
  *   (gdb) bt                      → strlen ← expand ← main
+ *   신기한점: 특정 프레임으로 들어가면 들어가지는데 어떤 프레임으로 들어가면 들어가지지 않아서.
  *   (gdb) frame 1 ; print key      → 어떤 키를 찾다가 죽었는지(예: "path")
  *   (gdb) print v                  → v == 0x0 (cfg_get 이 NULL 을 돌려줬음)
  *   (gdb) break expand             → 각 ${key} 마다 cfg_get 결과를 살펴 NULL 을 잡기
- *
+ *.  각 키마다 cfg_get결과를 살펴 null을 잡기
+
  * [printf(로그)로 잡기]
  *   치환 직전 키와 조회 결과 포인터를 함께 찍는다:
  *     fprintf(stderr, "expand key=%s v=%p\n", key, (void*)v);
@@ -36,47 +38,69 @@
 #include <string.h>
 
 #define MAX_KV 16
-typedef struct {
+typedef struct
+{
     const char *keys[MAX_KV];
     const char *vals[MAX_KV];
     int n;
 } Config;
 
-static void cfg_set(Config *c, const char *k, const char *v) {
-    if (c->n < MAX_KV) { c->keys[c->n] = k; c->vals[c->n] = v; c->n++; }
+static void cfg_set(Config *c, const char *k, const char *v)
+{
+    if (c->n < MAX_KV)
+    {
+        c->keys[c->n] = k;
+        c->vals[c->n] = v;
+        c->n++;
+    }
 }
 
-static const char *cfg_get(const Config *c, const char *k) {
+static const char *cfg_get(const Config *c, const char *k)
+{
     for (int i = 0; i < c->n; i++)
-        if (strcmp(c->keys[i], k) == 0) return c->vals[i];
-    return NULL;                       /* 없는 키 → NULL */
+        if (strcmp(c->keys[i], k) == 0)
+            return c->vals[i];
+    return ""; /* 없는 키 → NULL */
 }
 
-static void expand(const Config *c, const char *tmpl, char *out, size_t outcap) {
+static void expand(const Config *c, const char *tmpl, char *out, size_t outcap)
+{
     size_t o = 0;
-    for (const char *p = tmpl; *p; ) {
-        if (p[0] == '$' && p[1] == '{') {
+    for (const char *p = tmpl; *p;)
+    {
+        if (p[0] == '$' && p[1] == '{')
+        {
             const char *end = strchr(p, '}');
-            if (!end) break;
+            if (!end)
+                break;
             char key[32];
             size_t kl = (size_t)(end - (p + 2));
-            if (kl >= sizeof key) kl = sizeof key - 1;
+            if (kl >= sizeof key)
+                kl = sizeof key - 1;
             memcpy(key, p + 2, kl);
             key[kl] = '\0';
 
-            const char *v = cfg_get(c, key);      
-            size_t vl = strlen(v);                 
-            if (o + vl < outcap) { memcpy(out + o, v, vl); o += vl; }
+            const char *v = cfg_get(c, key);
+            size_t vl = strlen(v);
+            if (o + vl < outcap)
+            {
+                memcpy(out + o, v, vl);
+                o += vl;
+            }
             p = end + 1;
-        } else {
-            if (o + 1 < outcap) out[o++] = *p;
+        }
+        else
+        {
+            if (o + 1 < outcap)
+                out[o++] = *p;
             p++;
         }
     }
     out[o] = '\0';
 }
 
-int main(void) {
+int main(void)
+{
     /* [Thinking Point]
      * "{ .n = 0 }" 은 멤버 이름을 콕 집어 초기화하는 '지정 초기화자(designated initializer)'다.
      *   tip 1. 초기화자에 하나라도 값을 주면, 명시하지 않은 나머지 멤버는 전부 0 으로
@@ -84,7 +108,7 @@ int main(void) {
      *   tip 2. 만약 그냥 "Config cfg;" 로만 뒀다면 지역 변수라 n·keys·vals 가 쓰레기 값이다.
      *   생각해보기: n 이 쓰레기 값이면 cfg_set/cfg_get 에서 무슨 일이 벌어질까?
      *               */
-    Config cfg = { .n = 0 };
+    Config cfg = {.n = 0};
     cfg_set(&cfg, "host", "example.com");
     cfg_set(&cfg, "port", "8080");
 
@@ -99,7 +123,7 @@ int main(void) {
     const char *tmpl = "http://${host}:${port}/${path}/index.html";
     char out[256];
 
-    expand(&cfg, tmpl, out, sizeof out);   /* ${path} 치환 시 NULL 역참조 → 크래시 */
+    expand(&cfg, tmpl, out, sizeof out); /* ${path} 치환 시 NULL 역참조 → 크래시 */
 
     printf("url = %s\n", out);
     return 0;
