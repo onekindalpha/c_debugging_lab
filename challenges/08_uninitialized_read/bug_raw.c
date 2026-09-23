@@ -62,34 +62,37 @@
 
 /* 힙을 '더럽혀' 두어, 이후 같은 크기 할당이 쓰레기 값을 물려받게 만든다.
    (실무에서 흔한 '이전에 쓰고 free 한 청크의 잔여물' 상황을 재현) */
+// freed chunk 재사용이 예상되도록 구성한 것임.
 static void dirty_heap(void)
 {
+    // rows 와 같은 크기의 블록을 하나 만들고
     void *scratch = malloc(ROWS * sizeof(int *));
     if (scratch)
     {
+        // scratch가 가리키는 메모리의 각 바이트를 0xAB로 채우는 것임.
         memset(scratch, 0xAB, ROWS * sizeof(int *));
         free(scratch); /* glibc tcache 로 반환 → 같은 크기 malloc 이 이 블록을
                           LIFO 로 되돌려받는다(리눅스+glibc 고정이라 결정적). */
+        // free하고 나니까 해당 블록을 다시 사용할 수 있는 상태가 된다.
     }
 }
 
 static int **make_matrix(void)
 {
 
-    int **rows = calloc(ROWS, sizeof(int *));
+    int **rows = malloc(ROWS * sizeof(int *));
     if (!rows)
     {
-        perror("calloc");
+        perror("malloc");
         exit(1);
     }
-    // 두칸씩 건너뛰면서 행을 채운다.
+    // 2개씩 건너뛰면서 넣고 있다는 사실을 알게 됨.
     for (int i = 0; i < ROWS; i += 2)
     {
-        int *r = calloc(COLS, COLS * sizeof(int));
+        int *r = malloc(COLS * sizeof(int));
         for (int j = 0; j < COLS; j++)
             r[j] = i * COLS + j;
         rows[i] = r;
-        // 방금 rows[i]에 들어간 주소를 출력함.
         fprintf(stderr, "rows[%d]=%p\n", i, (void *)rows[i]);
     }
     return rows;
@@ -98,16 +101,13 @@ static int **make_matrix(void)
 static long row_sum(int **rows, int nrows)
 {
     long total = 0;
+    // 여기서는 모든 행을 사용중임.
     for (int i = 0; i < nrows; i++)
     {
-        // 여기에 넣는 이유는 rows[i][j]를 접근하기 전에 rows[i]를 확인해야 하기 때문임.
         fprintf(stderr, "rows[%d]=%p\n", i, (void *)rows[i]);
-        // rows[i]가 NULL이 여기에서 발생했었으니까 여기에서 수정을 함.
-        // NULL이 발생했었을 때를 건너뛰어서 total을 더함.
-        if (rows[i] != NULL)
+        for (int j = 0; j < COLS; j++)
         {
-            for (int j = 0; j < COLS; j++)
-                total += rows[i][j];
+            total += rows[i][j];
         }
     }
     return total;
@@ -123,7 +123,7 @@ int main(void)
     long s = row_sum(rows, ROWS);
 
     printf("sum = %ld\n", s);
-    // 두 칸씩 건너뛴다.
+
     for (int i = 0; i < ROWS; i += 2)
         free(rows[i]);
     free(rows);
