@@ -105,9 +105,10 @@ static long row_sum(int **rows, int nrows)
     for (int i = 0; i < nrows; i++)
     {
         fprintf(stderr, "rows[%d]=%p\n", i, (void *)rows[i]);
-        for (int j = 0; j < COLS; j++)
+        if (rows[i] != NULL)
         {
-            total += rows[i][j];
+            for (int j = 0; j < COLS; j++)
+                total += rows[i][j];
         }
     }
     return total;
@@ -115,8 +116,9 @@ static long row_sum(int **rows, int nrows)
 
 int main(void)
 {
+    // 근
     dirty_heap();
-
+    // 행 포인터들을 모아놓았음
     int **rows = make_matrix();
     printf("summing %dx%d matrix...\n", ROWS, COLS);
 
