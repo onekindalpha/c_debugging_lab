@@ -45,6 +45,7 @@ static size_t joined_size(const char *const *parts, int n)
     size_t total = 1; /* '\0' 자리 */
     // parts[0]부터 Parts[n-1]까지 구해야 하니까 i <n이라고 해야 하는데 왜 이렇게 되어있지.
     // 마지막 문자열을 제외하고 문자열 길이를 더함.
+    // 기존에 이 부분이 i < n -1 이었음. 따라서 마지막 문자열 길이만큼 덜복사된 것임.
     for (int i = 0; i < n; i++)
     {
         // strlen은 '\0'이 나오기 전까지 문자열 길이를 반환함.
@@ -80,7 +81,8 @@ static char *join(const char *const *parts, int n)
     // parts[0]부터 parts[n-1]까지 순서대로 처리함.
     for (int i = 0; i < n; i++)
     { /* 복사는 마지막 조각까지 전부 → 오버플로 */
-        // out의 off번째 위치부터 parts[i]가 가리키는 문자열을 복사함.
+        // out(malloc의 시작주소) 의 off번째 위치부터 parts[i]가 가리키는 문자열을 복사함.
+        // out이 가리키는 힙 영역 안에서 off 바이트 떨어진 위치부터 넣는 것임.
         strcpy(out + off, parts[i]);
         // strlen(parts[i])는 포인터의 크기 8바이트를 계산하는게 아니라, 포인터가 가리키는 문자열의 길이를 계산함.
         // strlen은 문자열을 따라가면서 '\0'이 나오기 전까지 몇 바이트인지 계산함.

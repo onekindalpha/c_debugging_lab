@@ -77,8 +77,9 @@ static char *join(const char *const *parts, int n)
 
 int main(void)
 {
-
   static char body[200000];
+  // 왜 aborted 에러가 발생하는지 - 200
+  static char body[200];
   memset(body, 'x', sizeof body - 1);
   body[sizeof body - 1] = '\0';
 
