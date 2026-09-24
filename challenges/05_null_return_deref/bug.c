@@ -20,8 +20,8 @@
  *   (gdb) bt                      → strlen ← expand ← main
  *   신기한점: 특정 프레임으로 들어가면 들어가지는데 어떤 프레임으로 들어가면 들어가지지 않아서.
  *   (gdb) frame 1 ; print key      → 어떤 키를 찾다가 죽었는지(예: "path")
- *   (gdb) print v                  → v == 0x0 (cfg_get 이 NULL 을 돌려줬음)
- *   (gdb) break expand             → 각 ${key} 마다 cfg_get 결과를 살펴 NULL 을 잡기
+ *   (gdb) print v                  → v == 0x0 (cfg_get 이 NULL 을 돌려줬음) <-이건 써있는 사실이지만.
+ *   (gdb) break expand             → 각 ${key} 마다 cfg_get 결과를 살펴 NULL 을 잡기.
  *.  각 키마다 cfg_get결과를 살펴 null을 잡기
 
  * [printf(로그)로 잡기]
@@ -40,6 +40,7 @@
 #define MAX_KV 16
 typedef struct
 {
+    // 키 와 값 설정 정보를 저장함.
     const char *keys[MAX_KV];
     const char *vals[MAX_KV];
     int n;
@@ -58,6 +59,8 @@ static void cfg_set(Config *c, const char *k, const char *v)
 static const char *cfg_get(const Config *c, const char *k)
 {
     for (int i = 0; i < c->n; i++)
+        // c가 가리키는 구조체의 keys 배열에서 i번째 문자열
+        // 비교할 문자열. 두 문자열을 비교함.
         if (strcmp(c->keys[i], k) == 0)
             return c->vals[i];
     return ""; /* 없는 키 → NULL */
@@ -108,6 +111,9 @@ int main(void)
      *   tip 2. 만약 그냥 "Config cfg;" 로만 뒀다면 지역 변수라 n·keys·vals 가 쓰레기 값이다.
      *   생각해보기: n 이 쓰레기 값이면 cfg_set/cfg_get 에서 무슨 일이 벌어질까?
      *               */
+    // 지정 초기화자임. 초기화자에 하나라도 값을 주면 명시하지 않은 나머지 멤버는 전부 0임.
+    // 아래 구문이 cfg 전체를 초기화함. key와 val도 0이 됨.
+    // config가 처음부터 예측 가능한 빈 상태가 되도록 만드는 초기화임.
     Config cfg = {.n = 0};
     cfg_set(&cfg, "host", "example.com");
     cfg_set(&cfg, "port", "8080");

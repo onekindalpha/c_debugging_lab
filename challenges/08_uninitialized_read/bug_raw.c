@@ -72,7 +72,7 @@ static void dirty_heap(void)
         // scratch가 가리키는 메모리의 각 바이트를 0xAB로 채우는 것임.
         memset(scratch, 0xAB, ROWS * sizeof(int *));
         free(scratch); /* glibc tcache 로 반환 → 같은 크기 malloc 이 이 블록을
-                          LIFO 로 되돌려받는다(리눅스+glibc 고정이라 결정적). */
+                          LI                      bn0.FO 로 되돌려받는다(리눅스+glibc 고정이라 결정적). */
         // free하고 나니까 해당 블록을 다시 사용할 수 있는 상태가 된다.
     }
 }

@@ -86,7 +86,7 @@ static int **make_matrix(void)
     for (int i = 0; i < ROWS; i += 2)
     {
         // r은 전부 값을 넣고 있어서 굳이 calloc일 필요가 없음.
-        int *r = calloc(COLS, COLS * sizeof(int));
+        int *r = malloc(COLS, COLS * sizeof(int));
         for (int j = 0; j < COLS; j++)
             r[j] = i * COLS + j;
         rows[i] = r;

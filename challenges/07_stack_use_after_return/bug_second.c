@@ -102,7 +102,6 @@ int main(void)
     checksum += (unsigned char)v.lines[i][0];
   // 문자열 주소들을 담고있던 힙의 포인터 배열을 해제
   free(v.lines);
-
   printf("lines = %d, checksum = %ld\n", v.count, checksum);
   return 0;
 }

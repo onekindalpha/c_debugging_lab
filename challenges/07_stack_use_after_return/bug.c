@@ -21,7 +21,6 @@
  *   (gdb) run                     → 크래시(SIGSEGV)
  *   (gdb) bt                      → main 의 checksum += v.lines[i][0] 지점
  *   (gdb) print v.lines           → split_lines 안 parts[] 의 (이미 무효인) 스택 주소
-
  *   (gdb) print v.lines[0]        → Cannot access memory 0x4141414141414141 같은 오염된(무효) 포인터
  *   (gdb) break split_lines       → parts 주소를 확인하고, 반환 후 그 값이 어떻게 덮이는지 관찰
  *   p & parts 로 해서, parts가 스택의 어느 주소에 있는가를 확인하려고 함.
@@ -57,22 +56,19 @@ typedef struct
 } LineView;
 
 /* 결과를 뷰에 채운다(포인터를 함수 경계 너머로 옮겨 -Wdangling 을 회피하는 형태) */
-// 이건 또 무슨 말이지.
-
 static void view_set(LineView *out, char **arr, int n)
 {
-    out->lines = arr; // v.lines
+    out->lines = arr; // v.lines -> split_lines()의 parts[0]을 가리킴. 
+    // v.lines가 dangling pointer가 된 것임. 
     out->count = n;   // v.count
 }
-// v <-&v <-out 따라서 Out을 이용하면 v의 멤버를 수정할 수 있ㅇ므
-
+// v <-&v <-out 따라서 Out을 이용하면 v의 멤버를 수정할 수 있음.
 static void split_lines(LineView *out, char *text, char **parts)
 {
     // *out은 v의 주소를 의미함.
     // parts는 함수의 지역변수
     // split_lines()가 실행되는 동안 스택에 만들어짐.
     // parts는 char *를 여러개 담는 지역배열임.
-
     int n = 0;
     /* strtok는 새로 할당하지 않고, 넘겨받은 문자열 내부의 주소를 돌려준다.
      * 따라서, strtok은 원본 버퍼를 제자리에서 수정한다.
@@ -92,14 +88,13 @@ static void split_lines(LineView *out, char *text, char **parts)
         parts[n++] = ln;
     // 그 결과와 parts를 뷰 셋으로 만듦.
     view_set(out, parts, n);
+    // parts는 배열이라서 함수 인자로 전달될 때 첫 번째 원소의 주소로 변환된다. 
     // ln으로 들어온 거랑 out이랑 값이 다름.
-
     /* TODO 상기 코드를 수정하여 결과를 호출자가 준 out 에 직접 채운다(값 반환 아님, 지역 주소 반환 아님). */
 }
 
 /* split_lines 가 쓰던 스택 프레임을, 같은 모양(char*[8])의 지역 배열로 덮는다.
    무효가 된 parts[] 자리에 '그럴듯한 쓰레기 포인터'가 들어차게 만든다. */
-// 근데 왜 그렇게 하는거지
 static void warm_stack(void)
 {
     // char * 포인터를 MAX_LINES개 담을 수 있는 지역 배열을 만든다.
@@ -114,7 +109,6 @@ static void warm_stack(void)
     // 어셈블리 코드. scratch를 실제로 사용한 것으로 컴파일러에게 인식시키기 위한 코드
     // "r"(scratch)를 통해 컴파일러에게 scratch를 사용하고 있으니까 이 배열을 없애지 마
     // memory는 메모리가 영향을 받을 수 있다느 사실을 컴파일러에게 알려서 메모리 최적화를 막는 역할을 함.
-    //
     __asm__ volatile("" ::"r"(scratch) : "memory"); /* 최적화 제거 방지 */
 }
 
@@ -122,21 +116,18 @@ int main(void)
 {
     char text[] = "alpha\nbeta\ngamma";
     // 문자열의 주소를 여러개 담을 공간을 만드는 코드임.
-    // 이렇게 했더니 warm_stack에서 덮어씌워지지 않음. 
+    // 이렇게 했더니 warm_stack에서 덮어씌워지지 않음.
     char *parts[MAX_LINES];
-
     // V의 주소를 split_lines에 전달함.
     LineView v;
     split_lines(&v, text, parts);
     // printf("%s", v.lines[0]);
     warm_stack();
-
     long checksum = 0;
     // v.count도 찍어보고 싶다.
     for (int i = 0; i < v.count; i++)
         // 이 부분에서 오류가 남.
         checksum += (unsigned char)v.lines[i][0];
-
     printf("lines = %d, checksum = %ld\n", v.count, checksum);
     return 0;
 }

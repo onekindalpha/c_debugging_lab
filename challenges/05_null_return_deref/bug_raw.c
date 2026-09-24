@@ -21,7 +21,7 @@
  *   (gdb) frame 1 ; print key      → 어떤 키를 찾다가 죽었는지(예: "path")
  *   (gdb) print v                  → v == 0x0 (cfg_get 이 NULL 을 돌려줬음)
  *   (gdb) break expand             → 각 ${key} 마다 cfg_get 결과를 살펴 NULL 을 잡기
- * 
+ *
  * [printf(로그)로 잡기]
  *   치환 직전 키와 조회 결과 포인터를 함께 찍는다:
  *     fprintf(stderr, "expand key=%s v=%p\n", key, (void*)v);
