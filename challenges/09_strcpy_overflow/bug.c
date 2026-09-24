@@ -88,9 +88,11 @@ static char *join(const char *const *parts, int n)
         // off는 현재까지 복사한 문자열의 총 길이임.
         // out에서 다음 문자열을 복사할 위치를 계산하는데 사용함.
         off += strlen(parts[i]);
+        // fprintf(stderr, "alloc=%zu copied=%zu\n", need, off);
     }
     // out은 포인터이지만 out[off]는 out이 가리키는 메모리의 off번째 바이트를 의미함.
     // out에 이어붙인 최종 문자열의 끝 위치에 문자열 종료 문자 '\0'을 기록함.
+    fprintf(stderr, "alloc=%zu copied=%zu\n", need, off);
     out[off] = '\0';
     return out;
 }

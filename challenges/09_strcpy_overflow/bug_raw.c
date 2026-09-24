@@ -59,6 +59,15 @@ static char *join(const char *const *parts, int n)
   size_t off = 0;
   for (int i = 0; i < n; i++)
   { /* 복사는 마지막 조각까지 전부 → 오버플로 */
+    // 오버 플로우가 나기 전에 공간이 부족하다는 것을 alloc과 required로 확인할 수 있는 코드를 추가함.
+    fprintf(stderr,
+            "i=%d alloc=%zu off=%zu len=%zu required=%zu\n",
+            i,                           // 몇번째 문자열을 복사하고 있는지
+            need,                        // malloc()으로 할당한 크기
+            off,                         //  현재 문자열을 out의 몇번째 바이트부터 복사할지
+            strlen(parts[i]),            // 현재 복사할 문자열의 길이
+            off + strlen(parts[i]) + 1); // 현재 문자열까지 복사하려면 필요한 전체 크기
+
     strcpy(out + off, parts[i]);
     off += strlen(parts[i]);
   }
