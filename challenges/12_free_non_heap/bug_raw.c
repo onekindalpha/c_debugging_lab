@@ -54,74 +54,42 @@
 #include <string.h>
 
 #define MAX_FIELDS 8
-typedef struct
-{
-    char *base;               /* 원본(=malloc 이 돌려준) 버퍼 */
-    char *fields[MAX_FIELDS]; /* 각 필드 시작(대개 base 내부를 가리킴) */
-    int n;
+typedef struct {
+    char *base;                  /* 원본(=malloc 이 돌려준) 버퍼 */
+    char *fields[MAX_FIELDS];    /* 각 필드 시작(대개 base 내부를 가리킴) */
+    int   n;
 } Row;
 
-static void parse_row(Row *r, const char *csv)
-{
-    // "id,name,dept,salary"
-    // Strdup(csv)가 내부적으로 힙 공간을 만들고 문자열을 복사함.
-    // 새로 할당된 문자열의 시작 주소를 r->base에 기록함.
-    // strdup가 힙 버퍼의 시작 주소를 반환함.
-    // 반환된 주소를 r->base에 바로 대입.
-    r->base = strdup(csv);
-    // csv는 원본 문자열의 시작 주소를 가리킴
-    // strdup(csv)는 힙에 새로운 버퍼를 할당하고 csv의 문자열을 복사함.
-    // strdup()이 반환한 새 버퍼의 시작 주소를 r->base에 기록함.
-    if (!r->base)
-    {
-        perror("strdup");
-        exit(1);
-    }
-    // fiedls에 저장된 토큰의 개수를 0으로 초기화함.
+static void parse_row(Row *r, const char *csv) {
+    r->base = strdup(csv);       
+    if (!r->base) { perror("strdup"); exit(1); }
     r->n = 0;
-    // strtok()은 r->base를 처음부터 검사하면서 구분자인 ','를 찾음.
-    // 찾은 쉼표를 '\0'으로 바꾸고, 토큰의 시작주소를 반환함.
-    // 첫번째 호출에서는 첫번째 토큰 "id"의 시작주소를 반환함.
-    // 이후 호출에서는 다음 토큰의 시작주소를 반환함.
-    for (char *tok = strtok(r->base, ",");
-         tok && r->n < MAX_FIELDS;
-         // 그 다음에는 NULL을 전달하면, 이전에 작업하던 문자열의 다음위치부터 계속 검사함.
-         // 반환된 토큰의 시작 주소를 Tok에 대입함.
-         // 마지막에는 더이상 토큰이 없으므로 NULL을 반환함.
-         tok = strtok(NULL, ","))
-    {
-        // fields[0]에는 r->base와 같은 주소, fields[1]부터는 r->base 내부의 각 토큰 시작주소가 들어감.
-        r->fields[r->n++] = tok; /* fields[0]=base, 나머지는 내부 포인터 */
+
+    for (char *tok = strtok(r->base, ","); tok && r->n < MAX_FIELDS;
+         tok = strtok(NULL, ",")) {
+        r->fields[r->n++] = tok;  /* fields[0]=base, 나머지는 내부 포인터 */
     }
 }
 
-static void row_print(const Row *r)
-{
+static void row_print(const Row *r) {
     printf("%d fields:", r->n);
-    for (int i = 0; i < r->n; i++)
-        // MAX_FIELD가 8이라고 할때 인덱스는 0~7이고, 개수는 최대 8로,
-        // 필드읽어올때는 i < r->n이 맞음.
-        printf(" [%s]", r->fields[i]);
+    for (int i = 0; i < r->n; i++) printf(" [%s]", r->fields[i]);
     printf("\n");
 }
 
-static void row_free(Row *r)
-{
-    // fprintf(stderr, "free fields[%d]=%p (base=%p off=%ld)\n",
-    //         i, (void *)r->fields[i], (void *)r->base,
-    //         (long)(r->fields[i] - r->base));
-    free(r->base);
+static void row_free(Row *r) {
+    for (int i = 0; i < r->n; i++) {
+        free(r->fields[i]);       
+    }
     r->n = 0;
 }
 
-int main(void)
-{
+int main(void) {
     Row r;
-    // 문자열 리터럴.
     parse_row(&r, "id,name,dept,salary");
     row_print(&r);
 
-    row_free(&r);
+    row_free(&r);                 
     printf("done\n");
     return 0;
 }
