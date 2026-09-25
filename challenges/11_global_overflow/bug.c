@@ -52,6 +52,8 @@
 static unsigned char arena[ARENA_SIZE]; /* 전역(.bss) 아레나 */
 // Size_t는 메모리 크기나 배열의 크기, 인덱스 등을 표현하기 위한 부호 없는 정수형임.
 // 메모리 크기는 음수가 될 수 없기때문에 주로 사용함.
+// 사용한 바이트의 개수이자 다음에 사용할 위치
+// 예: arena_off = 10이면 arena[0]~arena[9]까지 사용했고, 다음은 arena[10]
 static size_t arena_off = 0;
 
 static void *arena_alloc(size_t n)
@@ -65,6 +67,7 @@ static void *arena_alloc(size_t n)
     // 그리고 시작주소를 반환한다.
     void *p = &arena[arena_off];
     // arena_off는 0에서 시작해서, n(그러니까 intern에서 전달받은 의미로는 배열 buf의 전체 길이만큼) 더한다.
+    // n바이트를 사용했으니 다음 시작 위치를 n만큼 이동한다.
     arena_off += n;
     return p;
 }
@@ -113,7 +116,6 @@ int main(void)
     {
         // 최대 char 32개를 저장할 수 있는 배열 buf를 만든다. 인덱스는 0~31이고 전체 크기는 32바이트이다.
         // buf는 지역배열로. 일반적으로 스택 영역에 만들어짐.
-
         char buf[32];
         // snprintf()는 문자열을 버퍼에 만들되, 버퍼 크기를 지정해서, 최대 길이를 제한하는 함수임.
         // snprintf()는 가변인자 함수임. sizeof(buf)는 32바이트임.
