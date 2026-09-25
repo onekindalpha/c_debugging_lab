@@ -70,6 +70,7 @@ static void *arena_alloc(size_t n)
     return p;
 }
 
+// buf의 내용을 arena로 복사함.
 static char *intern(const char *s)
 {
     // main에서 전달받은 문자열의 길이를 구하고, '\0'까지 포함한 바이트 수를 n에 기록한다.
