@@ -60,9 +60,9 @@ static void audit_add(Audit *a, int id)
         // cap이 0이면 16개를 확보하고
         // 이미 공간이 있으면 기존 용량의 2배로 늘림.
         a->cap = a->cap ? a->cap * 2 : 16;
-        // 기존 ids 배열의 크기를 새로운 cap에 맞게 변경함.
-        // realloc()이 기존 메모리를 그대로 사용할 수도 잇고,
-        // 더 큰 공간으로 이동시킬 수도 있음.
+        // ids 배열이 사용할 메모리 크기를 새로운 cap에 맞게 변경함.
+        // realloc()은 기존 메모리를 그대로 확장할 수도 있고,
+        // 새로운 위치에 메모리를 할당한 뒤 기존 데이터를 복사할 수도 있음.
         int *p = realloc(a->ids, a->cap * sizeof(int));
         // 메모리 크기 변경에 실패했으면 오류를 출력하고 프로그램을 종료함.
         if (!p)
@@ -73,7 +73,8 @@ static void audit_add(Audit *a, int id)
         // realloc()이 반환한 메모리 시작 주소를 ids에 기록함.
         a->ids = p;
     }
-    // ids의 현재 위치에 id를 추가하고 len을 1 증가시킴.
+    // 현재 ID 개수인 len을 인덱스로 사용하여 id를 추가하고
+    // len을 1 증가시킴.
     a->ids[a->len++] = id;
 }
 
@@ -179,6 +180,7 @@ int main(void)
     // 동적으로 할당한 검사 ID 배열을 해제함.
     free(audit.ids);
     // 리스트에 남아 있는 Job을 처음부터 하나씩 해제함.
+    // c가 NULL이 아닐동안 반복한다.
     for (Job *c = head; c;)
     {
         // 현재 Job의 다음 Job의 주소를 미리 확보함.
