@@ -8,7 +8,7 @@
  *
  * [예시 상황]
  *  TCP 소켓 + TLS (HTTPS)
- *  소켓을 열고, 읽기/쓰기 버퍼를 잡고, SSL 세션을 만든 뒤 SSL_do_handshake()로 인증서를 확인. 
+ *  소켓을 열고, 읽기/쓰기 버퍼를 잡고, SSL 세션을 만든 뒤 SSL_do_handshake()로 인증서를 확인.
  *  핸드셰이크가 실패하면 소켓·SSL 객체·버퍼를 역순으로 닫음. handshake_ok가 바로 이 단계.
  *
  * [기대 동작]
@@ -42,54 +42,85 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct {
+typedef struct
+{
     char *rx;
     char *tx;
-    int  *state;
+    int *state;
 } Conn;
 
-static int handshake_ok(const Conn *c) {
+// c는 Conn 구조체의 주소를 저장하는 포인터 변수임.
+static int handshake_ok(const Conn *c)
+{
+    // c를 사용하지 않는다.
     (void)c;
-    return 0;                     /* 실패 */
+    // 항상 실패를 반환한다. int반환형 함수라.
+    return 0; /* 실패 */
 }
 
-static int conn_open(Conn *c, size_t bufsz) {
+// 32를 버프 사이즈로 받는다.
+static int conn_open(Conn *c, size_t bufsz)
+{
+    // Conn의 포인터 멤버를 NULL로 초기화함.
     c->rx = c->tx = NULL;
+    // 구조체 멤버인 rx, tx, state를 초기화함.
     c->state = NULL;
 
+    // bufsz 크기만큼 rx 버퍼를 힙에 할당함.
     c->rx = malloc(bufsz);
-    if (!c->rx) goto fail_rx;
-
+    // malloc 실패로 rx가 NULL이면
+    if (!c->rx)
+        // fail_rx 라벨로 이동함.
+        goto fail_rx;
+    // bufsz 크기만큼 tx 버퍼를 힙에 할당함.
     c->tx = malloc(bufsz);
-    if (!c->tx) goto fail_tx;
-
+    if (!c->tx)
+        // malloc 실패로 state가 NULL이면 fail_state 라벨로 이동함.
+        goto fail_tx;
+    // int 4개를 저장할 공간을 할당함.
     c->state = malloc(sizeof(int) * 4);
-    if (!c->state) goto fail_state;
-
+    if (!c->state)
+        // malloc 실패로 tx가 NULL이면 fail_tx 라벨로 이동함.
+        goto fail_state;
+    // strcpy(목적지, 원본)
     strcpy(c->rx, "rx-ready");
     strcpy(c->tx, "tx-ready");
-    for (int i = 0; i < 4; i++) c->state[i] = i;
-
-    if (!handshake_ok(c)) {
-
-        free(c->tx);              
-        goto fail_tx;             
+    // i가 0~3일 때 반복함.
+    // state[0]~state[3]에 0~3을 기록함.
+    for (int i = 0; i < 4; i++)
+        c->state[i] = i;
+    // handshake_ok()는 항상 0을 반환함.
+    // handshake_ok()가 0을 반환하므로 !0은 참이 됨.
+    if (!handshake_ok(c))
+    {
+        // 현재 위치에서는 tx를 해제하지 않고 fail_tx로 이동함.
+        fprintf(stderr, "free tx @validate tx=%p\n", (void *)c->tx);
+        // free(c->tx);
+        // 고투문을 실행한다.
+        goto fail_tx;
     }
-
-    return 0;                     
-
+    return 0;
+// 실패한 지점에 따라 필요한 정리 라벨로 이동함.
 fail_state:
     free(c->state);
+// fail_state에서 내려오면 fail_tx로 이어져 tx를 해제함.
 fail_tx:
-    free(c->tx);                 
+    fprintf(stderr, "free tx @fail_tx tx=%p\n", (void *)c->tx);
+    free(c->tx);
 fail_rx:
     free(c->rx);
+    // 여기까지 해제하면 -1을 반환한다.
     return -1;
 }
 
-int main(void) {
+int main(void)
+{
+    // Conn 타입의 구조체 변수 c를 생성한다.
     Conn c;
-    int rc = conn_open(&c, 32);   
+    // c의 주소를 conn_open에 전달한다.
+    // 반환된 값을 rc에 기록한다.
+    int rc = conn_open(&c, 32);
+    // conn open -1 출력문
     printf("conn_open rc=%d\n", rc);
     return 0;
 }
