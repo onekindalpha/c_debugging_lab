@@ -36,35 +36,47 @@
 #define MAX_HEADERS 32
 typedef struct
 {
+  // 헤더의 key 문자열 주소를 저장
   char *keys[MAX_HEADERS];
+  // 헤더의 value 문자열 주소를 저장
   char *vals[MAX_HEADERS];
+  // 현재 저장된 헤더 개수
   int count;
 } Headers;
 
+// 문자열 앞의 공백과 탭을 건너뛰고
+// 공백과 탭이 끝난 주소를 반환
 static char *skip_ws(char *s)
 {
   while (*s == ' ' || *s == '\t')
     s++;
   return s;
 }
-
+// Text를 줄 단위로 나누어 헤더의 key와 value를 저장
 static void parse_headers(char *text, Headers *h)
 {
+  //'\n'을 기준으로 한줄씩 분리함.
   for (char *line = strtok(text, "\n"); line != NULL; line = strtok(NULL, "\n"))
   {
+    // 현재 줄에서 ":"의 주소를 찾음.
     char *colon = strchr(line, ':');
+    // ':'가 없으면 헤더 형식이 아니므로 다음 줄로 이동
     if (colon == NULL)
     {
       continue;
     }
+    // ':'을 '\0'으로 바꿔 key 문자열을 종료
     *colon = '\0';
+    // ':' 앞부분을 키로 사용함.
     char *key = line;
+    // ':' 다음부터 시작하여 앞의 공백과 탭을 건너뛰고 value로 사용
     char *val = skip_ws(colon + 1);
-
+    // 헤더 배열의 최대 개수를 넘지 않는 경우 저장
     if (h->count < MAX_HEADERS)
     {
       h->keys[h->count] = key;
       h->vals[h->count] = val;
+      // 저장한 헤더 개수 증가.
       h->count++;
     }
   }
@@ -72,17 +84,19 @@ static void parse_headers(char *text, Headers *h)
 
 int main(void)
 {
-
+  // HTTP 헤더 형식의 테스트 문자열 생성
   char raw[] =
       "Host: example.com\n"
       "Accept: */*\n"
       "Connection\n"
       "User-Agent: memdbg-cli\n";
-
+  // 헤더 개수를 0으로 초기화
   Headers h = {.count = 0};
+  // raw를 파싱하여 h에 헤더 정보 저장
   parse_headers(raw, &h);
-
+  // 파싱된 헤더 개수 출력
   printf("parsed %d headers\n", h.count);
+  // 저장된 헤더의 key와 value 출력
   for (int i = 0; i < h.count; i++)
     printf("  %s = %s\n", h.keys[i], h.vals[i]);
   return 0;
