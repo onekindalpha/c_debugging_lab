@@ -39,37 +39,76 @@
 #include <stdio.h>
 #include <string.h>
 
-
-static void append_field(char *buf, size_t cap, size_t *len, const char *field, char sep) {
-    if (*len > 0) {
-        buf[(*len)++] = sep;             
-    }
+// 반환값으로 성공/실패 상태를 전달
+static int append_field(char *buf, size_t cap, size_t *len, const char *field, char sep)
+{
+    // 첫번째 필드가 아니면 구분자 1바이트가 추가된다.
+    int extra = (*len > 0) ? 1 : 0;
+    // 추가할 필드의 문자열 길이 계산
     size_t flen = strlen(field);
-    for (size_t i = 0; i < flen; i++) {
-        buf[(*len)++] = field[i];         
+    // (예외처리) 현재 길이 + 구분자 + 필드 + '\0'이 버퍼 용량을 초과하면 오류 반환
+    if ((*len + extra + flen + 1) > cap)
+        return -1;
+    // 첫번째 필드가 아니면 필드 앞에 구분자를 추가한다.
+    if (extra)
+    {
+        buf[(*len)++] = sep;
     }
+    // 필드의 모든 문자를 버퍼에 복사
+    for (size_t i = 0; i < flen; i++)
+    {
+        // 현재 길이, 버퍼 용량, 추가할 필드 길이 출력
+        fprintf(stderr, "append: len=%zu cap=%zu +%zu\n", *len, cap, strlen(field));
+        buf[(*len)++] = field[i];
+    }
+    // 문자열 마지막에 NUL 문자 추가
     buf[*len] = '\0';
-    (void)cap;                            
+    // 정상적으로 필드를 추가했음을 반환
+    return 0;
 }
 
-static void build_record(char *rec, size_t cap) {
+static int build_record(char *rec, size_t cap)
+{
+    // 이어 붙일 필드 목록
     const char *fields[] = {
-        "id=1042", "name=Jonathan", "department=Engineering", "role=maintainer",
+        "id=1042",
+        "name=Jonathan",
+        "department=Engineering",
+        "role=maintainer",
     };
+    // fileds 배열의 원소 개수 계산
     int n = (int)(sizeof(fields) / sizeof(fields[0]));
-
+    // 현재까지 만들어진 문자열의 길이
     size_t len = 0;
+    // 빈 문자열로 초기화
     rec[0] = '\0';
-    for (int i = 0; i < n; i++) {
-        append_field(rec, cap, &len, fields[i], '|');   
+    // 모든 필드를 순서대로 추가
+    for (int i = 0; i < n; i++)
+    {
+        // append_filed의 반환값으로 성공/실패 확인
+        int result = append_field(rec, cap, &len, fields[i], '|');
+        // 필드 전체를 넣을 공간이 부족하면 오류 반환
+        if (result == -1)
+            return -1;
     }
+    // 모든 필드를 정상적으로 추가
+    return 0;
 }
 
-int main(void) {
-    char rec[24];                         
-
-    build_record(rec, sizeof rec);        
-
+int main(void)
+{
+    // 최대 23개의 문자와 마지막 '\0'을 저장할 수 있는 ㅂ퍼ㅓ
+    char rec[24];
+    // 레코드 생성 결과 확인
+    int result = build_record(rec, sizeof rec);
+    // 레코드 생성 실패
+    if (result == -1)
+    {
+        printf("record 생성 실패\n");
+        return 1;
+    }
+    // 정상적으로 생성된 레코드 출력
     printf("record = %s\n", rec);
-    return 0;                            
+    // 정상 종료.
+    return 0;
 }

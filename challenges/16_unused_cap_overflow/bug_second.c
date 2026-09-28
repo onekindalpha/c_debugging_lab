@@ -41,30 +41,56 @@
 
 static void append_field(char *buf, size_t cap, size_t *len, const char *field, char sep)
 {
+    // 첫번째 필드가 아니면 구분자 1바이트가 추가된다.
+    int extra = (*len > 0) ? 1 : 0;
+    // 추가할 필드의 문자열 길이 계산한다.
+    size_t flen = strlen(field);
+    // 구분자 + NULl 문자까지 넣을 최소 공간이 부족하면
+    // 더이상 필드를 추가하지 않고 종료된다.
+    if (*len + extra + 1 > cap)
+        return;
+    // 현재 버퍼에서 필드에 사용할 수 있는 공간을 계산한다.
+    // -Extra: 구분자 1바이트
+    // - 1:문자열 끝의 NULL문자.
+    size_t available = cap - *len - extra - 1;
+    // 기본적으로 필드 전체를 복사한다.
+    size_t copy_len = flen;
+    // 필드 전체가 들어가지 않으면 버퍼에 들어갈 수 있는 길이만큼 복사한다.
+    if (copy_len > available)
+        copy_len = available;
+    // 첫번째 필드가 아니면 필드 앞에 구분자를 추가한다.
+    if (extra)
     {
         buf[(*len)++] = sep;
     }
-    size_t flen = strlen(field);
-    for (size_t i = 0; i < flen; i++)
+    // 필드를 copy_len만큼 버퍼에 복사한다.
+    // 공간이 부족하면 필드의 뒷부분은 잘린다.
+    for (size_t i = 0; i < copy_len; i++)
     {
+        // 현재 길이, 버퍼 용량, 추가할 필드 길이 출력
+        fprintf(stderr, "append: len=%zu cap=%zu +%zu\n", *len, cap, strlen(field));
         buf[(*len)++] = field[i];
     }
+    // 문자열 마지막에 문자열의 끝을 나타내는 NUL 문자 추가
     buf[*len] = '\0';
-    (void)cap;
 }
 
 static void build_record(char *rec, size_t cap)
 {
+    // 이어 붙일 필드 목록
     const char *fields[] = {
         "id=1042",
         "name=Jonathan",
         "department=Engineering",
         "role=maintainer",
     };
+    // fileds 배열의 원소 개수 계산
     int n = (int)(sizeof(fields) / sizeof(fields[0]));
-
+    // 현재까지 버퍼에 들어간 문자열의 길이를 기록한다.
     size_t len = 0;
+    // 버퍼를 빈 문자열로 초기화
     rec[0] = '\0';
+    // 모든 필드를 순서대로 추가
     for (int i = 0; i < n; i++)
     {
         append_field(rec, cap, &len, fields[i], '|');
@@ -73,10 +99,13 @@ static void build_record(char *rec, size_t cap)
 
 int main(void)
 {
+    // 전체 크기가 24바이트인 스택 버퍼를 생성한다.
+    // 문자열은 최대 23바이트까지 저장하고 마지막 1바이트는 NUL에 사용한다.
     char rec[24];
-
+    // rec의 크기를 전달하면서 레코드를 생성한다.
     build_record(rec, sizeof rec);
-
+    // 완성된 문자열을 출력한다.
     printf("record = %s\n", rec);
+    // 정상 종료.
     return 0;
 }
