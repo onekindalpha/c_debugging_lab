@@ -59,7 +59,7 @@ static size_t arena_off = 0;
 static void *arena_alloc(size_t n)
 {
     // 만약에 arena_off에 n을 더한 것이 sizeof(arena)를 초과하면 null을 반환하기로 한다.
-    // 끝까지 다 사용하는 경우는 정상이기 때문.
+    // 끝까지 다 사용하는 경우는 정상이기 때문에 초과로 함.
     if (arena_off + n > sizeof(arena))
         return NULL;
     // p는 arena의 시작 주소에서 arena_off만큼 떨어진 위치의 주소를 저장한다.

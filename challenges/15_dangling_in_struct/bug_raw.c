@@ -41,22 +41,33 @@
 
 typedef int (*PermFn)(const char *action);
 
-typedef struct {
-    PermFn permission;      
-    int    uid;
-    char   name[24];
+typedef struct
+{
+    PermFn permission;
+    int uid;
+    char name[24];
 } User;
 
-typedef struct {
-    User *user;             
-    int   session_id;
+typedef struct
+{
+    User *user;
+    int session_id;
 } Session;
 
-static int allow_all(const char *action) { (void)action; return 1; }
+static int allow_all(const char *action)
+{
+    (void)action;
+    return 1;
+}
 
-static User *login(int uid, const char *name) {
+static User *login(int uid, const char *name)
+{
     User *u = malloc(sizeof *u);
-    if (!u) { perror("malloc"); exit(1); }
+    if (!u)
+    {
+        perror("malloc");
+        exit(1);
+    }
     u->permission = allow_all;
     u->uid = uid;
     strncpy(u->name, name, sizeof(u->name) - 1);
@@ -64,36 +75,41 @@ static User *login(int uid, const char *name) {
     return u;
 }
 
-static void logout(Session *s) {
-    free(s->user);         
+static void logout(Session *s)
+{
+    free(s->user);
 }
 
 /* 감사 로그 항목. User 와 같은 크기라 해제된 청크를 재사용하기 쉽다. */
-static char *audit_record(const char *event) {
-    char *rec = malloc(sizeof(User));       
-    if (!rec) exit(1);
-    memset(rec, 0xAB, sizeof(User));        /* permission 자리를 0xAB.. 로 오염 */
+static char *audit_record(const char *event)
+{
+    char *rec = malloc(sizeof(User));
+    if (!rec)
+        exit(1);
+    memset(rec, 0xAB, sizeof(User)); /* permission 자리를 0xAB.. 로 오염 */
     snprintf(rec, sizeof(User), "audit:%s", event);
     return rec;
 }
 
-static int handle_request(Session *s, const char *action) {
+static int handle_request(Session *s, const char *action)
+{
 
-    return s->user->permission(action);    
+    return s->user->permission(action);
 }
 
-int main(void) {
+int main(void)
+{
     Session s;
     s.session_id = 1;
     s.user = login(42, "alice");
 
     printf("first request allowed=%d\n", handle_request(&s, "read"));
 
-    logout(&s);                              
+    logout(&s);
 
-    char *rec = audit_record("logout");      
+    char *rec = audit_record("logout");
     printf("%s\n", rec);
-    
+
     printf("second request allowed=%d\n", handle_request(&s, "write"));
 
     free(rec);
