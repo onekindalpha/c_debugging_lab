@@ -61,7 +61,7 @@ static char *intern(const char *s)
 {
     size_t n = strlen(s) + 1;
     char *dst = arena_alloc(n);
-    memcpy(dst, s, n); /* 경계를 넘은 위치면 여기서 크래시 */
+    memcpy(dst, s, n); /* 경계를 넘은 위치면 여기서 크래시 */ // 메모리를 읽고 쓰는 작업을 수행하는 함수니까. 여기서 발견.
     return dst;
 }
 

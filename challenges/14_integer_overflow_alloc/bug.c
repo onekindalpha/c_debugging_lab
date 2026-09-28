@@ -67,7 +67,7 @@ static Image *image_new(int width, int height, int channels)
     img->width = width;
     img->height = height;
     img->channels = channels;
-    // [에러 수정 코드] int x int x int 계산에서 발생하는 오버플로 방지.
+    // [에러 수정 코드] int x int x int 계a산에서 발생하는 오버플로 방지.
     size_t w = (size_t)width;
     size_t h = (size_t)height;
     size_t c = (size_t)channels;
