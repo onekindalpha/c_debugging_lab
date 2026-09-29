@@ -38,51 +38,102 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef struct {
-    int  key;
+typedef struct
+{
+    int key;
     long count;
 } Bucket;
 
-typedef struct {
+typedef struct
+{
     Bucket *data;
-    size_t  len, cap;
+    size_t len, cap;
 } Histogram;
 
-static void hist_grow(Histogram *h) {
+//
+static void hist_grow(Histogram *h)
+{
+    // h->cap이 0이면 16으로 설정
+    // 이미 용량이 있으면 기존 용량의 2배로 설정
     h->cap = h->cap ? h->cap * 2 : 16;
-    Bucket *p = realloc(h->data, h->cap * sizeof(Bucket));   /* 큰 배열은 이동(mmap 재배치) */
-    if (!p) { perror("realloc"); free(h->data); exit(1); }
+    // h->cap 개의 Bucket을 저장할 수 있도록 메모리 크기를 변경
+    // 첫 호출에서는 h->data = NULL이므로 새 메모리를 할당
+    // 이후 호출에서는 기존 배열의 크기를 늘림.
+    Bucket *p = realloc(h->data, h->cap * sizeof(Bucket)); /* 큰 배열은 이동(mmap 재배치) */
+    // realloc()은 len()을 변경하지 않음.
+    // len은 현재 사용 중인 Bucket의 개수이고, hist_add()에서 증가함.
+    // realloc()이 실패하면 기존 배열을 해제하고 프로그램 종료.
+    if (!p)
+    {
+        perror("realloc");
+        free(h->data);
+        exit(1);
+    }
+    // realloc()이 반환한 메모리 시작 주소를 h->data에 기록.
     h->data = p;
 }
 
 /* 키를 추가하고, 그 버킷의 주소를 돌려준다(성장이 일어날 수 있음). */
-static Bucket *hist_add(Histogram *h, int key) {
-    if (h->len == h->cap) hist_grow(h);
+static Bucket *hist_add(Histogram *h, int key)
+{
+    // 현재 사용중인 Bucket의 개수와 용량이 같으면 배열을 성장시킴.
+    if (h->len == h->cap)
+        hist_grow(h);
+    // 현재 len 위치의 Bucket 주소를 b에 저장
+    // 이후 len을 1 증가시켜 사용중인 Bucket의 개수를 증가시킴.
     Bucket *b = &h->data[h->len++];
+    // Bucket이 어떤 키의 빈도를 저장하는지 기록
     b->key = key;
+    // 새로 추가된 키이므로 빈도를 0으로 초기화.
     b->count = 0;
     return b;
 }
 
-static long hist_total(const Histogram *h) {
+// 모든 Bucket의 count 합계를 반환
+static long hist_total(const Histogram *h)
+{
     long t = 0;
-    for (size_t i = 0; i < h->len; i++) t += h->data[i].count;
+    // 모든 Bucket을 순회하면서 count를 합산.
+    for (size_t i = 0; i < h->len; i++)
+        t += h->data[i].count;
     return t;
 }
 
-int main(void) {
-    Histogram h = { .data = NULL, .len = 0, .cap = 0 };
+int main(void)
+{
+    // Histogram 구조체를 생성하고
+    // data는 NULL, 사용중인 Bucket 개수와 용량은 0으로 초기화
+    Histogram h = {.data = NULL, .len = 0, .cap = 0};
 
-    for (int k = 0; k < 200000; k++) hist_add(&h, k);
+    for (int k = 0; k < 200000; k++)
+        // k를 새로운 Key로 추가
+        hist_add(&h, k);
 
-    Bucket *hot = &h.data[100000];
-    hot->count = 1;
-
-    for (int k = 200000; k < 600000; k++) hist_add(&h, k);
-
-    hot->count += 1000;
-
-    printf("hot=%ld total=%ld len=%zu\n", hot->count, hist_total(&h), h.len);
+    // 100000번 Bucket을 가리킬 인덱스를 저장.
+    // 주소가 아닌 인덱스를 저장하므로 realloc()으로 배열이 이동해도 유효함.
+    size_t hot_idx = 100000;
+    // 테스트를 위해 100000번 Bucket의 count를 1로 설정.
+    h.data[hot_idx].count = 1;
+    // realloc() 전 현재 동적 배열의 시작 주소와 hot_idx를 확인.
+    fprintf(stderr, "before grow data=%p hot_idx=%zu\n",
+            (void *)h.data, hot_idx);
+    for (int k = 200000; k < 600000; k++)
+        // 새로운 key를 추가하면서 배열이 여러 번 성장할 수 있음.
+        hist_add(&h, k);
+    // 배열 성장 후 현재 동적 배열의 시작 주소와 hot_idx를 호가인
+    // data 주소가 바뀌어도 Hot_idx는 그대로 유지됨.
+    fprintf(stderr, "after grow data=%p hot_idx=%zu\n",
+            (void *)h.data, hot_idx);
+    // 배열이 성장한 후에도 인덱스를 사용해 100000번 Bucket의 count를 갱신
+    // 기존 hot 포인터 방식과 달리 stale pointer문제가 발생하지 않음.
+    h.data[hot_idx].count += 1000;
+    // 100000번 Bucket의 count,
+    // 모든 Bucket의 count 합계
+    // 전체 Bucket 개수를 출력
+    printf("hot=%ld total=%ld len=%zu\n", h.data[hot_idx].count, hist_total(&h), h.len);
+    // realloc()으로 확보한 동적 배열 메모리를 해제.
     free(h.data);
+    // 해제된 메모리의 주소를 다시 사용하지 않도록 NULL로 설정.
+    h.data = NULL;
     return 0;
 }
