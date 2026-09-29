@@ -75,6 +75,7 @@ static User *login(int uid, const char *name)
     }
     // allow_all의 함수 주소를 permission에 대입함.
     // User마다 다른 권한 검사 함수를 Permission에 연결할 수 있도록 설계함.
+    // user마다 permission에 서로 다른 함수 주소를 넣어서, 권한 확인 방법을 다르게 만들 수 있다
     u->permission = allow_all;
     u->uid = uid;
     strncpy(u->name, name, sizeof(u->name) - 1);
