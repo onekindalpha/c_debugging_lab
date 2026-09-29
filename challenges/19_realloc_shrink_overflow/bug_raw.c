@@ -49,51 +49,34 @@ typedef struct
 
 static void signal_init(Signal *s, size_t n)
 {
-    // 처음 할당을 할때 n의 크기 하나당 더블로 받고 이걸 s->samples로 한다.
-    // samples는 그러니까 포인터 변수이고, samples데이터는 힙 메모리에 할당된다.
     s->samples = malloc(n * sizeof(double));
-    // 할당에 실패하면.
     if (!s->samples)
     {
         perror("malloc");
         exit(1);
     }
-    // 왜 다 n이랑 같게 하는거지.
     s->len = s->cap = n;
-    // i % 7은 0~6을 반복하고, 여기에 3을 빼서 -3.0~3.0 범위의 값을 반복해서 넣는다.
     for (size_t i = 0; i < n; i++)
-        // 데이터는 여기서 넣는게 끝인 것 같은데. 그럼 리얼록 한 이후에는 . 왜 데이터를 넣지 않는거지. 축소만 해서 그런가.
         s->samples[i] = (double)(i % 7) - 3.0;
 }
 
-// keep을 8로 전달하고 있고
-// 리얼록은 처음에 생성안해도 바로 메모리 크기를 할당할 수 있다는데 맞나? 맞음. 처음에 널로 넣음.
-// 그렇다면 keep을 과소가 아니라 최대로 해서 넣으면. 새로 데이터를 넣어주는 작업을 해야 하는건가? 함수를 만들어야 하나?
 static void signal_trim(Signal *s, size_t keep)
 {
-    // keep이 뭔가 현재 용량보다.// 근데 여기가 뭔가 바뀐 것 같은데 화살표가.
-    if (keep < s->cap)
+    if (keep > s->cap)
         return;
-    // 리얼록은 어느 주소를 반환하는거지.
     double *p = realloc(s->samples, keep * sizeof(double));
-    // p가 존재하는 동안 s->samples로 한다.
     if (p)
         s->samples = p;
-    // s->cap은 현재 용량으로 한다.
-    // 아 알았다 여기서 cap을 줄였는데 Len은 그대로여서. len도 같이 갱신하면 좋을 것 같음.
-    // 실질적으로 데이터를 넣는다기 보다는 len을 갱신.
     s->cap = keep;
-    s->len = keep;
 }
 
 static double signal_energy(const Signal *s)
 {
     double e = 0.0;
-    // 현재 사용하고 있는 크기보다 적으면
-    // 왜 두배를 곱해서 더하는거지
-    // 근데 여기서 만든 것을 왜 갱신은 딱히 안하고 그냥 데이터만 이용을 하나.
     for (size_t i = 0; i < s->len; i++)
     {
+        // i인덱스의 s->samples값을 곱해서 더한다.
+        //  어떤 의미인지는 모르겠음.
         e += s->samples[i] * s->samples[i];
     }
     return e;
@@ -101,17 +84,14 @@ static double signal_energy(const Signal *s)
 
 int main(void)
 {
-    // s구조체를 쓰겠다.
     Signal s;
     signal_init(&s, 2000000);
-    // 8은 뭔 의미지
+
     signal_trim(&s, 8);
-    // e를 반환하는데 더블로 반환한다.
+
     double e = signal_energy(&s);
+
     printf("energy = %.1f (len=%zu cap=%zu)\n", e, s.len, s.cap);
-    // s.sampels에 대해 프리한다. samples를 가리키는 포인터 변수를 해제한다.
     free(s.samples);
-    // 처음에는 말록으로 할당을 하는거니까 굳이 해제안해줘도 되나
-    s.samples = NULL;
     return 0;
 }

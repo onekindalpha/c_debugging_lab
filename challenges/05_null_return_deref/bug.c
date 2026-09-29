@@ -33,6 +33,7 @@
  * TODO: cfg_get() 의 NULL 반환을 반드시 검사하라. 없는 키는 기본값("")으로 대체하거나
  *       명시적 오류로 처리한다("사용 전에 검사" 원칙).
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -104,6 +105,7 @@ static void expand(const Config *c, const char *tmpl, char *out, size_t outcap)
 
 int main(void)
 {
+    // 지정 초기화자 = 구조체나 배열에서 초기화할 위치를 이름이나 인덱스로 지정하는 문법
     /* [Thinking Point]
      * "{ .n = 0 }" 은 멤버 이름을 콕 집어 초기화하는 '지정 초기화자(designated initializer)'다.
      *   tip 1. 초기화자에 하나라도 값을 주면, 명시하지 않은 나머지 멤버는 전부 0 으로

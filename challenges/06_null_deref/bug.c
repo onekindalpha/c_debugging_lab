@@ -46,6 +46,7 @@ typedef struct
 
 // 문자열 앞의 공백과 탭을 건너뛰고
 // 공백과 탭이 끝난 주소를 반환
+// : 뒤의 공백을 제거할 수 있음. 
 static char *skip_ws(char *s)
 {
   while (*s == ' ' || *s == '\t')
