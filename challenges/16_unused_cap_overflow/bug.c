@@ -57,8 +57,6 @@ static int append_field(char *buf, size_t cap, size_t *len, const char *field, c
     // 필드의 모든 문자를 버퍼에 복사
     for (size_t i = 0; i < flen; i++)
     {
-        // 현재 길이, 버퍼 용량, 추가할 필드 길이 출력
-        fprintf(stderr, "append: len=%zu cap=%zu +%zu\n", *len, cap, strlen(field));
         buf[(*len)++] = field[i];
     }
     // 문자열 마지막에 NUL 문자 추가
@@ -97,8 +95,9 @@ static int build_record(char *rec, size_t cap)
 
 int main(void)
 {
-    // 최대 23개의 문자와 마지막 '\0'을 저장할 수 있는 ㅂ퍼ㅓ
-    char rec[24];
+    // 전체 레코드는 '\0' 포함 61바이트이므로 여유 있게 64바이트 버퍼를 사용한다.
+    // cap 검사(append_field)는 그대로 두어, 필드가 더 늘어나도 넘치지 않고 -1로 실패한다.
+    char rec[64];
     // 레코드 생성 결과 확인
     int result = build_record(rec, sizeof rec);
     // 레코드 생성 실패

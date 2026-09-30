@@ -93,11 +93,12 @@ static int conn_open(Conn *c, size_t bufsz)
     // handshake_ok()가 0을 반환하므로 !0은 참이 됨.
     if (!handshake_ok(c))
     {
-        // 현재 위치에서는 tx를 해제하지 않고 fail_tx로 이동함.
-        fprintf(stderr, "free tx @validate tx=%p\n", (void *)c->tx);
-        // free(c->tx);
-        // 고투문을 실행한다.
-        goto fail_tx;
+        // 여기서는 아무것도 직접 해제하지 않고 정리 사다리에 맡긴다.
+        // rx, tx, state 세 자원을 모두 확보한 상태이므로 가장 마지막에 확보한
+        // state부터 역순으로 해제하도록 fail_state로 이동한다.
+        // (이전: goto fail_tx → state 해제를 건너뛰어 메모리 누수 발생)
+        fprintf(stderr, "handshake failed: cleanup from fail_state\n");
+        goto fail_state;
     }
     return 0;
 // 실패한 지점에 따라 필요한 정리 라벨로 이동함.
@@ -109,6 +110,9 @@ fail_tx:
     free(c->tx);
 fail_rx:
     free(c->rx);
+    // 해제한 주소가 구조체에 남아 dangling 포인터가 되지 않도록 NULL로 비운다.
+    c->rx = c->tx = NULL;
+    c->state = NULL;
     // 여기까지 해제하면 -1을 반환한다.
     return -1;
 }

@@ -72,18 +72,23 @@ static void signal_init(Signal *s, size_t n)
 static void signal_trim(Signal *s, size_t keep)
 {
     // keep이 뭔가 현재 용량보다.// 근데 여기가 뭔가 바뀐 것 같은데 화살표가.
-    if (keep < s->cap)
+    // [수정] 줄이는 경우(keep < cap)에만 realloc 한다.
+    // (이전: keep < cap 이면 return → 축소 자체가 실행되지 않아 크래시만 가려졌음)
+    if (keep >= s->cap)
         return;
     // 리얼록은 어느 주소를 반환하는거지.
     double *p = realloc(s->samples, keep * sizeof(double));
-    // p가 존재하는 동안 s->samples로 한다.
-    if (p)
-        s->samples = p;
+    // realloc 이 실패하면 기존 블록은 그대로 살아 있으므로 상태를 바꾸지 않는다.
+    if (!p)
+        return;
+    s->samples = p;
     // s->cap은 현재 용량으로 한다.
     // 아 알았다 여기서 cap을 줄였는데 Len은 그대로여서. len도 같이 갱신하면 좋을 것 같음.
     // 실질적으로 데이터를 넣는다기 보다는 len을 갱신.
     s->cap = keep;
-    s->len = keep;
+    // len 은 새 용량을 넘지 않도록만 줄인다(원래 len 이 더 작으면 그대로 유지).
+    if (s->len > keep)
+        s->len = keep;
 }
 
 static double signal_energy(const Signal *s)
